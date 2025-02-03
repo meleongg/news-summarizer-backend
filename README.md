@@ -4,9 +4,9 @@ This project fetches news articles, summarizes them using NLP models, and analyz
 
 ## Features
 
-✅ Fetch news via API  
-✅ Summarize using Hugging Face `bart-large-cnn`  
-✅ Analyze sentiment with NLTK  
+✅ Fetch news via API
+✅ Summarize using Hugging Face `bart-large-cnn`
+✅ Analyze sentiment with NLTK
 ✅ Simple UI with Streamlit
 
 ## Installation

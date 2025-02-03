@@ -1,3 +1,4 @@
+torch
 fastapi
 uvicorn
 requests
@@ -5,3 +6,4 @@ python-dotenv
 newspaper3k
 transformers
 nltk
+lxml_html_clean
