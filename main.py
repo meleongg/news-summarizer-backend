@@ -21,11 +21,6 @@ NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 app = FastAPI()
 
-# test endpoint
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
