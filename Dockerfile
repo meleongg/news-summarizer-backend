@@ -2,16 +2,16 @@
 FROM python:3.9
 
 
-WORKDIR /code
+WORKDIR /app
 
 
-COPY ./requirements.txt /code/requirements.txt
+COPY ./requirements.txt /app/requirements.txt
 
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
 
-COPY ./app /code/app
+COPY ./app /app
 
 
 CMD ["fastapi", "run", "app/main.py", "--port", "10000"]
