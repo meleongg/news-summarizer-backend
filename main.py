@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from newspaper import Article
 from transformers import pipeline
 from nltk.sentiment import SentimentIntensityAnalyzer
-import uvicorn
 
 # URL validation function
 def validate_url(url: str) -> bool:
@@ -21,10 +20,6 @@ load_dotenv()
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 app = FastAPI()
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
 
 # CORS middleware
 app.add_middleware(
