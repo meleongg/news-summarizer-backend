@@ -12,18 +12,24 @@ from functools import lru_cache
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-INFERENCE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-NEWS_API_URL = "https://newsapi.org/v2/everything"
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+LOCAL_FRONTEND_URL = os.getenv("LOCAL_FRONTEND_URL")
+INFERENCE_API_URL = os.getenv("INFERENCE_API_URL")
+NEWS_API_URL = os.getenv("NEWS_API_URL")
 MAX_WORDS = int(os.getenv("MAX_WORDS"))
-SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
+SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD"))
 
 app = FastAPI()
 
 # CORS middleware
+origins = [
+    LOCAL_FRONTEND_URL,
+    FRONTEND_URL,
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
-                   "https://news-summarizer-frontend.vercel.app/"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
