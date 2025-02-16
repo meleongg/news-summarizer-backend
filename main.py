@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from newspaper import Article
 from nltk.sentiment import SentimentIntensityAnalyzer
+import nltk
+
+# download data for Sentiment Analysis
+nltk.download('vader_lexicon')
 
 # URL validation function
 def validate_url(url: str) -> bool:
@@ -19,6 +23,9 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+
+MAX_WORDS = int(os.getenv("MAX_WORDS", "130"))
+SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
 
 app = FastAPI()
 
@@ -72,16 +79,20 @@ def query(payload):
     return response.json()
 
 @app.get("/analyze/")
-def analyze_article(url: str):
+async def analyze_article(url: str):
     """Extract, summarize, and analyze sentiment of an article"""
     try:
         # Extract article text
         article = Article(url)
-        article.download()
-        article.parse()
+        try:
+            article.download()
+            article.parse()
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"Failed to fetch article: {str(e)}")
+
         text = article.text
         words = text.split()
-        text = ' '.join(words[:130])
+        text = ' '.join(words[:MAX_WORDS])
 
         # Summarize article (max tokens ~130 words)
         summary = query({
@@ -90,12 +101,14 @@ def analyze_article(url: str):
 
         # Perform sentiment analysis
         sentiment_score = sentiment_analyzer.polarity_scores(text)["compound"]
-        sentiment_label = "Positive" if sentiment_score > 0.05 else "Negative" if sentiment_score < -0.05 else "Neutral"
+        sentiment_label = "Positive" if sentiment_score > SENTIMENT_THRESHOLD else "Negative" if sentiment_score < -SENTIMENT_THRESHOLD else "Neutral"
 
         return {
             "title": article.title,
             "summary": summary,
             "sentiment": sentiment_label
         }
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid URL or unable to fetch article")
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"API service unavailable: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
