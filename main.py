@@ -4,7 +4,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from newspaper import Article
-from transformers import pipeline
 from nltk.sentiment import SentimentIntensityAnalyzer
 
 # URL validation function
@@ -17,7 +16,9 @@ def validate_url(url: str) -> bool:
 
 # Load API key
 load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 
 app = FastAPI()
 
@@ -31,7 +32,6 @@ app.add_middleware(
 )
 
 # Load NLP models
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 sentiment_analyzer = SentimentIntensityAnalyzer()
 
 @app.get("/fetch_news/")
@@ -62,6 +62,15 @@ def fetch_news(query: str, sort_by: str = "relevancy", page_size: int = 10):
     # Return only up to page_size number of articles
     return valid_articles[:page_size]
 
+headers = {"Authorization": "Bearer " + HF_TOKEN}
+
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="Error from Hugging Face API")
+    return response.json()
+
 @app.get("/analyze/")
 def analyze_article(url: str):
     """Extract, summarize, and analyze sentiment of an article"""
@@ -71,9 +80,13 @@ def analyze_article(url: str):
         article.download()
         article.parse()
         text = article.text
+        words = text.split()
+        text = ' '.join(words[:130])
 
         # Summarize article (max tokens ~130 words)
-        summary = summarizer(text, max_length=130, min_length=30, do_sample=False)[0]["summary_text"]
+        summary = query({
+            "inputs": text,
+        })[0]["summary_text"]
 
         # Perform sentiment analysis
         sentiment_score = sentiment_analyzer.polarity_scores(text)["compound"]
