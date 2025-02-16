@@ -26,7 +26,8 @@ app = FastAPI()
 origins = [
     LOCAL_FRONTEND_URL,
     FRONTEND_URL,
-    FRONTEND_FULL_URL
+    FRONTEND_FULL_URL,
+    "*"
 ]
 
 app.add_middleware(
@@ -132,3 +133,8 @@ async def analyze_article(url: str):
         raise HTTPException(status_code=503, detail=f"API service unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
