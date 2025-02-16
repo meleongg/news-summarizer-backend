@@ -13,7 +13,7 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-FRONTEND_CATCH_ALL_URL = os.getenv("FRONTEND_CATCH_ALL_URL")
+FRONTEND_FULL_URL = os.getenv("FRONTEND_FULL_URL")
 LOCAL_FRONTEND_URL = os.getenv("LOCAL_FRONTEND_URL")
 INFERENCE_API_URL = os.getenv("INFERENCE_API_URL")
 NEWS_API_URL = os.getenv("NEWS_API_URL")
@@ -26,7 +26,7 @@ app = FastAPI()
 origins = [
     LOCAL_FRONTEND_URL,
     FRONTEND_URL,
-    FRONTEND_CATCH_ALL_URL
+    FRONTEND_FULL_URL
 ]
 
 app.add_middleware(
