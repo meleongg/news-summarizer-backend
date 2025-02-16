@@ -9,15 +9,14 @@ import nltk
 from functools import lru_cache
 import logging
 
-# Load API keys
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
-GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")  # New API key
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 FRONTEND_FULL_URL = os.getenv("FRONTEND_FULL_URL")
 LOCAL_FRONTEND_URL = os.getenv("LOCAL_FRONTEND_URL")
 INFERENCE_API_URL = os.getenv("INFERENCE_API_URL")
-GNEWS_API_URL = os.getenv("GNEWS_API_URL")  # New API URL
+GNEWS_API_URL = os.getenv("GNEWS_API_URL")
 MAX_WORDS = int(os.getenv("MAX_WORDS"))
 SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD"))
 
@@ -56,7 +55,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @app.get("/fetch_news/")
-async def fetch_news(request: Request, query: str, sort_by: str = "relevance", page_size: int = 10):
+async def fetch_news(request: Request, query: str, sort_by: str = "relevance", page_size: int = 5):
     """Fetch news articles based on a search phrase with sorting and pagination"""
     logger.info(f"Fetching news for query: {query}")
     try:
@@ -95,7 +94,7 @@ async def fetch_news(request: Request, query: str, sort_by: str = "relevance", p
         } for article in articles if validate_url(article["url"])]
 
         return valid_articles[:page_size]
-    
+
     except Exception as e:
         logger.error(f"Error in fetch_news: {str(e)}")
         raise
@@ -145,8 +144,3 @@ async def analyze_article(url: str):
         raise HTTPException(status_code=503, detail=f"API service unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-@app.get("/test-cors")
-async def test_cors(request: Request):
-    logger.info(f"Test CORS request from origin: {request.headers.get('origin')}")
-    return {"message": "CORS test successful"}
