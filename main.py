@@ -23,7 +23,8 @@ def validate_url(url: str) -> bool:
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+INFERENCE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+NEWS_API_URL = "https://newsapi.org/v2/everything"
 MAX_WORDS = int(os.getenv("MAX_WORDS"))
 
 SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
@@ -47,11 +48,20 @@ def fetch_news(query: str, sort_by: str = "relevancy", page_size: int = 10):
     """Fetch news articles based on a search phrase with sorting and pagination"""
     # Start by fetching a larger batch (e.g., 50 articles)
     extra_page_size = 50
-    url = f"https://newsapi.org/v2/everything?q={query}&apiKey={NEWS_API_KEY}&sortBy={sort_by}&pageSize={extra_page_size}"
+    url = f"{NEWS_API_URL}?q={query}&apiKey={NEWS_API_KEY}&sortBy={sort_by}&pageSize={extra_page_size}"
     response = requests.get(url)
 
     if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="Failed to fetch news")
+      error_message = f"Failed to fetch news. Status code: {response.status_code}"
+      try:
+        error_detail = response.json()
+        error_message += f", Response: {error_detail}"
+      except:
+        error_message += f", Response text: {response.text}"
+
+      # Use appropriate status code from the News API response
+      status_code = response.status_code if response.status_code != 0 else 500
+      raise HTTPException(status_code=status_code, detail=error_message)
 
     articles = response.json().get("articles", [])
 
@@ -75,7 +85,7 @@ headers = {"Authorization": "Bearer " + HF_TOKEN}
 @lru_cache(maxsize=100)
 def query(payload_str: str):
     payload = eval(payload_str)  # Convert string to dict
-    response = requests.post(API_URL, headers=headers, json=payload)
+    response = requests.post(INFERENCE_API_URL, headers=headers, json=payload)
 
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail="Error from Hugging Face API")
