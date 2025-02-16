@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from newspaper import Article
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
+from functools import lru_cache
 
 # download data for Sentiment Analysis
 nltk.download('vader_lexicon')
@@ -23,8 +24,8 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+MAX_WORDS = int(os.getenv("MAX_WORDS"))
 
-MAX_WORDS = int(os.getenv("MAX_WORDS", "130"))
 SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
 
 app = FastAPI()
@@ -71,7 +72,9 @@ def fetch_news(query: str, sort_by: str = "relevancy", page_size: int = 10):
 
 headers = {"Authorization": "Bearer " + HF_TOKEN}
 
-def query(payload):
+@lru_cache(maxsize=100)
+def query(payload_str: str):
+    payload = eval(payload_str)  # Convert string to dict
     response = requests.post(API_URL, headers=headers, json=payload)
 
     if response.status_code != 200:
@@ -94,10 +97,10 @@ async def analyze_article(url: str):
         words = text.split()
         text = ' '.join(words[:MAX_WORDS])
 
-        # Summarize article (max tokens ~130 words)
-        summary = query({
+        # Summarize article
+        summary = query(str({
             "inputs": text,
-        })[0]["summary_text"]
+        }))[0]["summary_text"]
 
         # Perform sentiment analysis
         sentiment_score = sentiment_analyzer.polarity_scores(text)["compound"]
