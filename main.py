@@ -8,8 +8,31 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 from functools import lru_cache
 
-# download data for Sentiment Analysis
+# Load API key
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+INFERENCE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+NEWS_API_URL = "https://newsapi.org/v2/everything"
+MAX_WORDS = int(os.getenv("MAX_WORDS"))
+SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
+
+app = FastAPI()
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000",
+                   "https://news-summarizer-frontend.vercel.app/"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Download data for Sentiment Analysis
 nltk.download('vader_lexicon')
+# Load NLP models
+sentiment_analyzer = SentimentIntensityAnalyzer()
 
 # URL validation function
 def validate_url(url: str) -> bool:
@@ -18,30 +41,6 @@ def validate_url(url: str) -> bool:
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
-
-# Load API key
-load_dotenv()
-HF_TOKEN = os.getenv("HF_TOKEN")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-INFERENCE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-NEWS_API_URL = "https://newsapi.org/v2/everything"
-MAX_WORDS = int(os.getenv("MAX_WORDS"))
-
-SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD", "0.05"))
-
-app = FastAPI()
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Load NLP models
-sentiment_analyzer = SentimentIntensityAnalyzer()
 
 @app.get("/fetch_news/")
 def fetch_news(query: str, sort_by: str = "relevancy", page_size: int = 10):
