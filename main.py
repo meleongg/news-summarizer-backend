@@ -9,15 +9,15 @@ import nltk
 from functools import lru_cache
 import logging
 
-# Load API key
+# Load API keys
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")  # New API key
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 FRONTEND_FULL_URL = os.getenv("FRONTEND_FULL_URL")
 LOCAL_FRONTEND_URL = os.getenv("LOCAL_FRONTEND_URL")
 INFERENCE_API_URL = os.getenv("INFERENCE_API_URL")
-NEWS_API_URL = os.getenv("NEWS_API_URL")
+GNEWS_API_URL = os.getenv("GNEWS_API_URL")  # New API URL
 MAX_WORDS = int(os.getenv("MAX_WORDS"))
 SENTIMENT_THRESHOLD = float(os.getenv("SENTIMENT_THRESHOLD"))
 
@@ -56,18 +56,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @app.get("/fetch_news/")
-async def fetch_news(request: Request, query: str, sort_by: str = "relevancy", page_size: int = 10):
+async def fetch_news(request: Request, query: str, sort_by: str = "relevance", page_size: int = 10):
     """Fetch news articles based on a search phrase with sorting and pagination"""
     logger.info(f"Fetching news for query: {query}")
     try:
-        # Start by fetching a larger batch (e.g., 50 articles)
-        extra_page_size = 50
-        url = f"{NEWS_API_URL}?q={query}&apiKey={NEWS_API_KEY}&sortBy={sort_by}&pageSize={extra_page_size}"
-        response = requests.get(url)
+        # GNews parameters
+        params = {
+            "q": query,
+            "token": GNEWS_API_KEY,
+            "max": page_size,  # GNews uses 'max' instead of 'pageSize'
+            "sortby": sort_by,  # GNews supports: relevance, publishedAt
+            "lang": "en"  # Add language filter
+        }
 
-        logger.info(f"News API response status: {response.status_code}")
+        response = requests.get(GNEWS_API_URL, params=params)
+
+        logger.info(f"GNews API response status: {response.status_code}")
         if response.status_code != 200:
-            logger.error(f"News API error: {response.text}")
+            logger.error(f"GNews API error: {response.text}")
             error_message = f"Failed to fetch news. Status code: {response.status_code}"
             try:
                 error_detail = response.json()
@@ -75,26 +81,21 @@ async def fetch_news(request: Request, query: str, sort_by: str = "relevancy", p
             except:
                 error_message += f", Response text: {response.text}"
 
-            # Use appropriate status code from the News API response
             status_code = response.status_code if response.status_code != 0 else 500
             raise HTTPException(status_code=status_code, detail=error_message)
 
+        # GNews response structure is different
         articles = response.json().get("articles", [])
 
-        # Validate URLs and filter out invalid ones
-        valid_articles = [{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])]
+        # Format articles to match your frontend expectations
+        valid_articles = [{
+            "title": article["title"],
+            "url": article["url"],
+            "source": article["source"]["name"]
+        } for article in articles if validate_url(article["url"])]
 
-        # If not enough valid articles, fetch more (if possible)
-        while len(valid_articles) < page_size and len(articles) < extra_page_size:
-            # Fetch more if needed, adjusting the query or page number
-            response = requests.get(url)  # You can modify URL here to fetch the next batch
-            if response.status_code != 200:
-                break
-            articles = response.json().get("articles", [])
-            valid_articles.extend([{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])])
-
-        # Return only up to page_size number of articles
         return valid_articles[:page_size]
+    
     except Exception as e:
         logger.error(f"Error in fetch_news: {str(e)}")
         raise
