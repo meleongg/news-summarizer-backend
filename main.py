@@ -1,12 +1,13 @@
 import os
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from newspaper import Article
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
 from functools import lru_cache
+import logging
 
 # Load API key
 load_dotenv()
@@ -27,7 +28,6 @@ origins = [
     LOCAL_FRONTEND_URL,
     FRONTEND_URL,
     FRONTEND_FULL_URL,
-    "*"
 ]
 
 app.add_middleware(
@@ -51,42 +51,53 @@ def validate_url(url: str) -> bool:
     except requests.exceptions.RequestException:
         return False
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @app.get("/fetch_news/")
-def fetch_news(query: str, sort_by: str = "relevancy", page_size: int = 10):
+async def fetch_news(request: Request, query: str, sort_by: str = "relevancy", page_size: int = 10):
     """Fetch news articles based on a search phrase with sorting and pagination"""
-    # Start by fetching a larger batch (e.g., 50 articles)
-    extra_page_size = 50
-    url = f"{NEWS_API_URL}?q={query}&apiKey={NEWS_API_KEY}&sortBy={sort_by}&pageSize={extra_page_size}"
-    response = requests.get(url)
+    logger.info(f"Fetching news for query: {query}")
+    try:
+        # Start by fetching a larger batch (e.g., 50 articles)
+        extra_page_size = 50
+        url = f"{NEWS_API_URL}?q={query}&apiKey={NEWS_API_KEY}&sortBy={sort_by}&pageSize={extra_page_size}"
+        response = requests.get(url)
 
-    if response.status_code != 200:
-      error_message = f"Failed to fetch news. Status code: {response.status_code}"
-      try:
-        error_detail = response.json()
-        error_message += f", Response: {error_detail}"
-      except:
-        error_message += f", Response text: {response.text}"
-
-      # Use appropriate status code from the News API response
-      status_code = response.status_code if response.status_code != 0 else 500
-      raise HTTPException(status_code=status_code, detail=error_message)
-
-    articles = response.json().get("articles", [])
-
-    # Validate URLs and filter out invalid ones
-    valid_articles = [{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])]
-
-    # If not enough valid articles, fetch more (if possible)
-    while len(valid_articles) < page_size and len(articles) < extra_page_size:
-        # Fetch more if needed, adjusting the query or page number
-        response = requests.get(url)  # You can modify URL here to fetch the next batch
+        logger.info(f"News API response status: {response.status_code}")
         if response.status_code != 200:
-            break
-        articles = response.json().get("articles", [])
-        valid_articles.extend([{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])])
+            logger.error(f"News API error: {response.text}")
+            error_message = f"Failed to fetch news. Status code: {response.status_code}"
+            try:
+                error_detail = response.json()
+                error_message += f", Response: {error_detail}"
+            except:
+                error_message += f", Response text: {response.text}"
 
-    # Return only up to page_size number of articles
-    return valid_articles[:page_size]
+            # Use appropriate status code from the News API response
+            status_code = response.status_code if response.status_code != 0 else 500
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        articles = response.json().get("articles", [])
+
+        # Validate URLs and filter out invalid ones
+        valid_articles = [{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])]
+
+        # If not enough valid articles, fetch more (if possible)
+        while len(valid_articles) < page_size and len(articles) < extra_page_size:
+            # Fetch more if needed, adjusting the query or page number
+            response = requests.get(url)  # You can modify URL here to fetch the next batch
+            if response.status_code != 200:
+                break
+            articles = response.json().get("articles", [])
+            valid_articles.extend([{"title": a["title"], "url": a["url"], "source": a["source"]["name"]} for a in articles if validate_url(a["url"])])
+
+        # Return only up to page_size number of articles
+        return valid_articles[:page_size]
+    except Exception as e:
+        logger.error(f"Error in fetch_news: {str(e)}")
+        raise
 
 headers = {"Authorization": "Bearer " + HF_TOKEN}
 
@@ -134,7 +145,7 @@ async def analyze_article(url: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+@app.get("/test-cors")
+async def test_cors(request: Request):
+    logger.info(f"Test CORS request from origin: {request.headers.get('origin')}")
+    return {"message": "CORS test successful"}
